@@ -11,6 +11,16 @@ Lessons from running this loop on the data platform of a large consumer marketpl
 - Observability: every dashboard and alert rule got a decision, applied in days, each reviewed with the specialist for that technology.
 - Cost sweep after the migration: allocated-but-unused storage, legacy machine types at low CPU, caches at low memory, and an unowned backup vault. Quote the saving as the team's own estimate, never as a finance figure.
 
+## What the map changed
+
+- The indirection layer was the best decision in the migration. Every workload addressed an alias, so moving its data meant repointing a record, and the night-time work per cache was a flip plus a validation.
+- "Cutover" meant four different things. One engine moved a database at a time and could go back and forward; another failed over a whole cluster with every schema on it and allowed exactly one rollback before a rebuild measured in days; caches were copied ahead and flipped; mirrored topics imposed no order at all. Counting in those units made the schedule far smaller than the schema count suggested.
+- The one-shot rollback is why that decision stayed human. A rollback there meant staying on the old side until another change window.
+- Reading everything surfaced what sampling had hidden: live, replicating assets owned by nobody; large clusters with no owning service; a failover path the dashboards did not show; hazards with no off switch that needed a code change before the night.
+- Pilots were chosen to prove the machinery, not to move volume, and the larger one ran in working hours in front of business users rather than end customers. End customers are the worst way to find out.
+- A schema-change freeze had to be announced repeatedly; a stray change breaks replication and costs days.
+- Streams feeding the warehouse belonged to another team and had to drain around each database's change. That coordination was harder than the databases.
+
 ## The blunder
 
 Everything that went well was reading: inventory, parity, planning, verification. The one production incident came from the one automated write with no verifier in front of it. An automated configuration change pointed a service at a cache whose name differed from the right one by a single token. Syntactically perfect, wrong. Three fixes, which are the three rules applied:
@@ -38,4 +48,5 @@ Version one of the wave plan contained decommissioned services. One inventory co
 - *How did you get MCP access approved?* Scoped service accounts with viewer roles and an audit log, the same way as for a new engineer.
 - *What did the agents cost?* Have the number ready; route execution to the cheapest capable model and the planning and verification to the strong one.
 - *What about on-call?* Medium and low severity alerts go to an agent that investigates with read access and escalates to a human only when needed. It plugs into the same context layer.
+- *How do you show it is working?* With a ratio: objects the agents read, decisions people made, things retired, days on the clock. People made every decision; there were just far fewer decisions than objects.
 - *Isn't this just more tooling?* The kit removes reasons the debt was unpaid; a product adds a reason. The test is whether the pile shrank this week.

@@ -6,12 +6,14 @@ One recipe per common pile. Each follows the same shape: read everything, propos
 
 Use for cloud-to-cloud, region or major-version moves of databases, caches and message systems.
 
+0. **Estate map and units of change.** Draw the four-layer map and the unit-of-change table before anything else (`estate-map.md`). Fix workloads that address hosts directly; list ownerless assets for a decommission check instead of a migration.
 1. **Knowledge bundle.** Agents correlate repositories, deployment namespaces, database schemas, caches and topics into one inventory. Humans supply the scope rule ("this region, on Kubernetes, nothing else") and the authoritative source (the service catalogue).
 2. **Parity checks, read-only.** Source versus target per cluster: schema, users and grants, sizes, versions, replication lag, endpoints and aliases, storage headroom. Output a parity table with every gap flagged, never fixed. Full disks and unresolved DNS are the usual blockers.
 3. **Wave plan with a verifier.** The planner orders waves by business blast radius. The verifier re-derives membership and order and checks for known regressions (a host split across waves, a decommissioned service present, a cohort that drifted). Iterate until `GO`; seven versions in a week is normal.
-4. **Failure playbooks.** For each service and component: failure modes, risks, a decision tree and a do-not-do list. Record which rollbacks are one-shot (typically a MySQL-style cutover) and which are repeatable (typically Postgres with logical replication) because that asymmetry decides the night.
-5. **The night.** Agents validate connections and parity live; humans execute the cutover and make the go/no-go and rollback calls. Agents do not write to production during the window.
-6. **After.** The same parity check runs on a schedule until decommission.
+4. **Pilots.** A small batch cut over for real to prove the machinery, then a larger one in working hours in front of users who will report breakage quickly. Agree the pilot's bar first (for example, no added latency on service-to-service calls). Freeze schema changes in scope, and sequence the drain of downstream streams with their owners.
+5. **Failure playbooks.** For each service and component: failure modes, risks, a decision tree and a do-not-do list. Record which rollbacks are one-shot (typically a MySQL-style cutover) and which are repeatable (typically Postgres with logical replication) because that asymmetry decides the night.
+6. **The night.** Agents validate connections and parity live; humans execute the cutover and make the go/no-go and rollback calls. Agents do not write to production during the window.
+7. **After.** The same parity check runs on a schedule until decommission. Count the repair on the scale scorecard.
 
 Humans keep: the scope rule, wave order, the one-rollback-no-roll-forward call, go/no-go.
 
@@ -66,3 +68,5 @@ Use the plan format in SKILL.md. Add a one-row entry to a running scorecard so t
 | | | | | |
 
 The pattern to look for across rows: agents did the reading, the correlating and the checking; humans did the deciding and the one irreversible click. Every time the pattern held, the debt shrank.
+
+Then add the repair to the scale scorecard (`templates/scorecard.md`): objects read, decisions made, things retired, days on the clock. The counting rules are in `debt-ledger.md`.

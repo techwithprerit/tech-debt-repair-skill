@@ -1,6 +1,6 @@
 ---
 name: tech-debt-repair
-description: Turn infrastructure tech-debt panic into a weekly repair loop run by AI agents that read, correlate and verify while humans decide. Use this whenever someone wants to inventory, audit, migrate, consolidate, clean up or de-risk legacy infrastructure (old pipelines, untrusted alerts, unowned repos, cloud migrations, cost sweeps, config drift), asks "where do we even start with our tech debt", wants agents to work on a legacy estate safely, or is designing an MCP server, sub-agent team or scheduled brief for ops work. Apply it even when the word "tech debt" is never said; "nobody dares touch that" is the trigger.
+description: Turn infrastructure tech-debt panic into a weekly repair loop run by AI agents that read, correlate and verify while humans decide. Use this whenever someone wants to inventory, audit, migrate, consolidate, clean up or de-risk legacy infrastructure (old pipelines, untrusted alerts, unowned repos, cloud migrations, cost sweeps, config drift), asks "where do we even start with our tech debt", wants agents to work on a legacy estate safely, or is designing an MCP server, sub-agent team or scheduled brief for ops work. Also use it to map an estate before a move, to plan a cutover in waves with pilots, to build a debt ledger, or to show leadership how much debt was actually retired. Apply it even when the word "tech debt" is never said; "nobody dares touch that" is the trigger.
 ---
 
 # Tech Debt Repair
@@ -13,15 +13,23 @@ Infra debt stayed unpaid for three reasons, and all three are reading costs: **t
 
 Use this skill as the operating procedure. The reference files add depth; read them when a step says to.
 
+## What counts as debt
+
+Tech debt is the future cost of a shortcut taken to ship today. Treat it as a loan: the **principal** is the shortcut, the **interest** is what every later change costs because of it, and **bankruptcy** is the week in which interest is all the team can afford. Code and architecture debt get the attention; this skill is for the debt that hides in **infrastructure**, in **operations** and in **knowledge** (the map held in the heads of people who have moved on).
+
+Principal is hard to price, so measure interest: hours per week working around the pile, pages traced to it, changes it blocks, what it costs to carry. Keep one ledger row per pile and never delete a row; it retires with a date and a proof. Definitions, the measuring method and the ledger rules are in `references/debt-ledger.md`.
+
 ## The five-step loop (the Monday playbook)
 
 Run this once a week. The goal is not one heroic cleanup; it is that interest stops accruing.
 
-1. **Pick one pile.** The alert nobody trusts, the job nobody deletes, the repo with no owner. One pile, small enough to finish in a week. See `references/pile-picker.md` for the scoring sheet.
+1. **Pick one pile.** The alert nobody trusts, the job nobody deletes, the repo with no owner. One pile, small enough to finish in a week, taken from the debt ledger. See `references/pile-picker.md` for the scoring sheet.
 2. **Read-only hands.** Give the agent one MCP server (or equivalent typed tool access) with viewer credentials into the systems a human would open for this pile. Read everything before writing a line. See `references/mcp-readonly.md`.
 3. **Gate the inputs.** Name the source of truth for every fact the run depends on. If a source is unreachable, the run stops; the agent never substitutes a guess. See "Input gates" below.
 4. **Propose, then verify.** One agent proposes the change; a second agent with a different brief re-derives the answer from the same inputs and diffs. Decide what proof means *before* the proposing agent starts. See `references/verification.md` and `references/agent-roles.md`.
 5. **Loop it.** Put the same read on a schedule (daily brief or weekly report). Debt that is checked every week stops compounding. See `references/daily-loop.md`.
+
+Close every repair by counting it: objects read, decisions made, things retired, days on the clock. See "Showing the result" below.
 
 ## Three rules that keep the kit from becoming new debt
 
@@ -68,11 +76,20 @@ Before any run, fill this table and refuse to start if a row is empty:
 
 Names that look alike (`service-cache` vs `service-global-cache`) get an explicit mapping table. Never fuzzy-match identifiers.
 
+## Map before you move
+
+Any repair that touches state (a migration, a consolidation, a decommission) starts with two artefacts the agents draw from read-only sources. Method in `references/estate-map.md`, template in `templates/estate-map.md`.
+
+- **The estate map**, in four layers: workloads, the indirection layer they actually address (DNS aliases, discovery names), state by kind, and the readers of that state nobody remembers (change-data-capture streams, exports, backups). If workloads address aliases and never hosts, moving state is "repoint an alias" rather than "redeploy a service"; any workload that addresses a host directly is a finding to fix first.
+- **The unit of change and the way back**, per kind of state. One engine moves a database at a time and can go back and forward; another fails over a whole cluster with every schema on it and allows one rollback before a rebuild that takes days; caches flip one record with the data copied ahead; mirrored topics impose no order. Schedule on units, not on the count of things inside them, and mark each way back as repeatable, one-shot or none.
+
+Then order waves by blast radius, cap them by the crew that runs them, keep bound units in the same wave, and pilot first: a small batch cut over for real to prove the machinery, then a larger one in working hours in front of users who will tell you when it breaks. One-shot ways back stay a human call.
+
 ## Repair recipes
 
 Pick the recipe that matches the pile; each is in `references/repair-playbooks.md` with the proof it needs.
 
-- **Migration parity and wave planning** (cloud-to-cloud, region, major version): inventory bundle → read-only parity checks → wave plan iterated with a verifier → failure playbooks with a do-not-do list. Proof: parity table per cluster, verifier GO.
+- **Migration parity and wave planning** (cloud-to-cloud, region, major version): estate map and units of change → inventory bundle → read-only parity checks → wave plan iterated with a verifier → pilots → failure playbooks with a do-not-do list. Proof: parity table per cluster, verifier GO.
 - **Observability consolidation** (too many tools, untrusted alerts): read every dashboard and alert rule with firing history → one decision per object, reviewed with the specialist for that technology → backup, retire by pausing with a label, burn new rules in on chat for two weeks. Proof: decision log plus burn-in.
 - **CI pipeline conversion** (legacy pipelines to a new system): cluster pipelines into patterns → one reviewed template per pattern → convert repo by repo → verify by replaying the same commit through both systems and diffing artifacts and side effects → disable old jobs for 30 days before deletion. Proof: replay diff.
 - **Unowned artifact or repo cleanup**: read access logs and configs → owner-or-retire decision per repo → retire by freezing, then deleting after a quarantine. Proof: zero reads during quarantine.
@@ -109,7 +126,20 @@ When this skill produces a plan, use this structure:
 ## Loop (what gets scheduled afterwards, and when)
 ```
 
+When this skill produces a result summary, use the scale scorecard in `templates/scorecard.md`: what the agents read, what people decided, what was retired, and the clock.
+
 When this skill produces a verification report, the first line is the verdict (`GO`, `GO-WITH-CONDITIONS`, `NO-GO`), followed by the checks run, each with evidence, and the conditions if any.
+
+## Showing the result
+
+"Is it working" gets a ratio, not an adjective. For each repair count three things and the clock:
+
+- **Read**: every object the agents opened (repositories, aliases, instances, rules, dashboards, pipelines).
+- **Decided**: every decision a person made (keep, fix, retire, go or no-go).
+- **Retired**: what no longer exists or no longer costs.
+- **Clock**: days from first read to proof.
+
+The read-to-decided ratio is the case for the approach: reading everything removes sampling, which is where debt hides, and people still made every decision. Count from the source system and keep the query; say "about" when a headline is a sum of parts; call a saving an estimate until the bill moves; leave unfinished repairs out of the totals. Rules in `references/debt-ledger.md`.
 
 ## Anti-patterns to call out
 
@@ -121,6 +151,11 @@ When this skill produces a verification report, the first line is the verdict (`
 - Deleting instead of disabling. Everything retires through a quarantine with a label and a date.
 - Filling the brief with numbers but no verdicts. A human should be able to act on every line.
 - Skipping the loop. A one-off cleanup is a snapshot; the debt returns.
+- Moving state before drawing the map. The move then becomes the inventory, at night.
+- Scheduling on schema or object counts when the engine changes a whole cluster at once.
+- Treating every rollback as repeatable. Write down which ones are one-shot before the night.
+- Going straight to the big night. Pilot on something real and small first.
+- Reporting a saving as fact before the bill has moved.
 
 ## How to use this skill with people
 

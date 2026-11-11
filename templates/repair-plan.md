@@ -30,8 +30,14 @@
 | Go / no-go | | after verdict |
 | The irreversible step | | at the step, by hand |
 
-## Rollback
-<One-shot or repeatable? Who calls it? Tested when?>
+## Unit of change and way back
+<What moves as one operation (a database, a whole cluster, a host, one record)? Time budget per operation. Way back: repeatable, one-shot or none. Who calls it (role)? Tested when?>
+
+## Pilot
+<What goes first, cut over for real, to prove the machinery. The bar it must clear, agreed before it runs.>
 
 ## Loop
 <What gets scheduled afterwards, at what cadence, reading what.>
+
+## How it will be counted
+<Objects read, decisions made, things retired, days on the clock. Where each count comes from.>
